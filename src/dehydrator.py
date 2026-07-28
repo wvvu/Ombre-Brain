@@ -82,7 +82,7 @@ _RETRY_STATUS = {429, 500, 502, 503, 504}
 _DEHYDRATE_FALLBACK_CHARS = 300
 
 # --- 该多长才需要压缩（低于该 token 数直接走原文）---
-_DEHYDRATE_MIN_TOKENS = 100
+_DEHYDRATE_MIN_TOKENS = 300
 
 # --- 各 API 调用的内容截断上限（防 prompt token 超范围）---
 _DEHYDRATE_INPUT_LIMIT = 3000
