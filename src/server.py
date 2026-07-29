@@ -963,12 +963,15 @@ async def letter_write(
     title: Optional[str] = "",
     date: Optional[str] = "",
     ai_name: Optional[str] = "",
+    audience: Optional[str] = "",
+    reading_note: Optional[str] = "",
 ) -> str:
-    """写入一封信。author 必填:\"user\"=用户一方写的,\"ai\"(或等于 ai_name)=AI 一方写的,也可直接传任意署名字符串;user_name 可选;ai_name 可选(默认取环境变量 AI_NAME,回退 \"AI\");title/date 可选。信件原文永久保存,不压缩/不合并/不衰减,仅建向量索引;普通 breath 不返回,SessionStart 钩子会带上双方各最新一封。"""
+    """写入一封信。author 必填:\"user\"=用户一方写的,\"ai\"(或等于 ai_name)=AI 一方写的,也可直接传任意署名字符串;user_name 可选;ai_name 可选(默认取环境变量 AI_NAME,回退 \"AI\");title/date 可选;audience 建议填,决定 letter_read 怎么给后来的实例标注这封信:\"successor\"=写给后续实例的(正文里的「你」指读信的模型),\"user\"=写给用户的(正文里的「你」指用户,读信的实例是旁观者),\"record\"=纯记录、无特定收信人;reading_note 可选,单封的手写补充,接在导读行末尾。信件原文永久保存,不压缩/不合并/不衰减,仅建向量索引;普通 breath 不返回,SessionStart 钩子会带上双方各最新一封。"""
     return await _with_notice(
         _t_plan.letter_write(
             author=author, content=content, user_name=user_name,
             title=title, date=date, ai_name=ai_name,
+            audience=audience, reading_note=reading_note,
         ),
         op="letter_write",
         args={

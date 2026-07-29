@@ -2373,6 +2373,9 @@ class BucketManager:
         # 由 server.py 的 plan() / trace() / /api/plans/{id}/action 维护，bucket_manager 不参与生成。
         for k in ("status", "type", "resolution_reason", "resolved_by",
                   "related_bucket", "author", "user_name", "letter_date",
+                  # letter 收信人语义：audience/author_role 驱动 letter_read
+                  # 的导读行渲染，reading_note 是单封手写的补充。纯透传，不校验。
+                  "audience", "author_role", "reading_note",
                   "change_log",
                   # iter 1.8 新增字段。除 weight 外全部透传不转换。
                   # weight 在 plan 上才有意义；这里不在这个循环里校验类型，由上层 server.py 保证传入范围。

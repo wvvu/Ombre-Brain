@@ -125,6 +125,8 @@ async def letter_write(
     title: Optional[str] = "",
     date: Optional[str] = "",
     ai_name: Optional[str] = "",
+    audience: Optional[str] = "",
+    reading_note: Optional[str] = "",
 ) -> str:
     if user_name is None:
         user_name = ""
@@ -133,6 +135,10 @@ async def letter_write(
     if date is None:
         date = ""
     # ai_name：显式传入优先，否则取环境变量 AI_NAME（回退 "AI"）。
+    audience = (audience or "").strip().lower()
+    reading_note = (reading_note or "").strip()
+    if audience and audience not in _VALID_AUDIENCE:
+        return f"audience 只能是 {'/'.join(sorted(_VALID_AUDIENCE))}，收到: {audience}"
     ai = (ai_name or "").strip() or get_ai_name()
     if not author or not author.strip():
         return "author 不能为空。"
@@ -165,6 +171,13 @@ async def letter_write(
         a = raw
 
     extra_meta = {"author": a}
+    # author_role 由归一化后的署名推导，不额外收参：署名可以是任意字符串
+    # （"言"、"Claude Fable 5"…），但「哪一方写的」只有两种，推导比填写可靠。
+    extra_meta["author_role"] = "user" if a == "user" else "ai"
+    if audience:
+        extra_meta["audience"] = audience
+    if reading_note:
+        extra_meta["reading_note"] = reading_note[:200]
     if user_name.strip():
         extra_meta["user_name"] = user_name.strip()
     if title.strip():
@@ -190,6 +203,38 @@ async def letter_write(
     # 注意：bucket_mgr.create() 已在 content 落盘后投递 embedding outbox
     # 向量，这里不需要也不应该重复调用 generate_and_store。
     return f"💌letter→{bucket_id} [{a}]"
+
+
+_VALID_AUDIENCE = {"successor", "user", "record"}
+
+
+# --- letter 收信人导读（渲染层）---------------------------------
+# author 一直印在抬头里，但实测会被读信的模型忽略：它转而从正文人称
+# 推断收信人，猜错整封信的味道就错位。这里在抬头下补一行自然语言，
+# 直接钉死正文里的「你」指谁。信息本身正文都有，这一行买的是显著性。
+_LETTER_AUDIENCE_LINES = {
+    "successor": "写给后来的模型｜正文里的「你」＝你自己",
+    "user": "写给{human}｜正文里的「你」＝{human}",
+    "record": "纯记录｜无特定收信人",
+}
+
+
+def _letter_orientation(meta: dict) -> str:
+    """渲染收信人导读行。没有 audience 字段的旧信原样返回空串。"""
+    audience = str(meta.get("audience") or "").strip().lower()
+    template = _LETTER_AUDIENCE_LINES.get(audience)
+    if not template:
+        return ""
+    try:
+        human = str((rt.config or {}).get("human") or "").strip()
+    except Exception:
+        human = ""
+    line = template.format(human=human or "用户")
+    note = str(meta.get("reading_note") or "").strip()
+    if note:
+        line = f"{line}｜{note}"
+    return f"▶ {line}\n"
+
 
 
 async def letter_read(
@@ -298,6 +343,7 @@ async def letter_read(
         title = m.get("title") or m.get("name", "")
         payload = (
             f"[{b['id']}] {a} · {d}{(' · ' + title) if title else ''}\n"
+            + _letter_orientation(m)
             + strip_wikilinks(b["content"])
         )
         parts.append(
